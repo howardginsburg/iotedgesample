@@ -58,24 +58,39 @@
         },
         "modules": {
           "SimulatedTemperatureSensor": {
-              "settings": {
-                  "image": "mcr.microsoft.com/azureiotedge-simulated-temperature-sensor:1.0",
-                  "createOptions": ""
-              },
-              "type": "docker",
-              "version": "1.0",
-              "status": "running",
-              "restartPolicy": "always"
+            "settings": {
+              "image": "mcr.microsoft.com/azureiotedge-simulated-temperature-sensor:1.0",
+              "createOptions": ""
+            },
+            "type": "docker",
+            "version": "1.0",
+            "status": "running",
+            "restartPolicy": "always"
           },
-          "samplemodule": {
+          "SampleModule": {
             "version": "1.0",
             "type": "docker",
             "status": "running",
             "restartPolicy": "always",
             "settings": {
-              "image": "${MODULES.samplemodule}",
+              "image": "${MODULES.SampleModule}",
               "createOptions": {}
             }
+          },
+          "StreamAnalytics": {
+            "settings": {
+              "image": "mcr.microsoft.com/azure-stream-analytics/azureiotedge:1.0.11",
+              "createOptions": ""
+            },
+            "type": "docker",
+            "version": "1.0.0.0",
+            "env": {
+              "PlanId": {
+                "value": "stream-analytics-on-iot-edge"
+              }
+            },
+            "status": "running",
+            "restartPolicy": "always"
           },
           "IoTEdgeMetricsCollector": {
             "version": "1.0",
@@ -103,6 +118,16 @@
                 "value": ""
               }
             }
+          },
+          "FunctionModule": {
+            "version": "1.0",
+            "type": "docker",
+            "status": "running",
+            "restartPolicy": "always",
+            "settings": {
+              "image": "${MODULES.FunctionModule}",
+              "createOptions": {}
+            }
           }
         }
       }
@@ -111,8 +136,11 @@
       "properties.desired": {
         "schemaVersion": "1.1",
         "routes": {
-          "SimulatedTemperatureSensorToFilter": "FROM /messages/modules/SimulatedTemperatureSensor/outputs/temperatureOutput INTO BrokeredEndpoint(\"modules/samplemodule/inputs/input1\")",
-          "samplemoduleToIoTHub": "FROM /messages/modules/samplemodule/outputs/* INTO $upstream"
+          "SimulatedTemperatureSensorToSampleModule": "FROM /messages/modules/SimulatedTemperatureSensor/outputs/temperatureOutput INTO BrokeredEndpoint(\"modules/SampleModule/inputs/input1\")",
+          "SampleModuleToFunctionModule": "FROM /messages/modules/SampleModule/outputs/output1/* INTO BrokeredEndpoint(\"/modules/FunctionModule/inputs/input1\")",
+          "FunctionModuleToStreamAnalytics": "FROM /messages/modules/FunctionModule/outputs/output1/* INTO BrokeredEndpoint(\"/modules/StreamAnalytics/inputs/edgehubinput\")",
+          "StreamAnalyticsToIoTHub": "FROM /messages/modules/StreamAnalytics/outputs/edgehuboutput/* INTO $upstream"
+          
         },
         "storeAndForwardConfiguration": {
           "timeToLiveSecs": 7200
@@ -121,8 +149,14 @@
     },
     "SimulatedTemperatureSensor": {
       "properties.desired": {
-          "SendData": true,
-          "SendInterval": 5
+        "SendData": true,
+        "SendInterval": 5
+      }
+    },
+    "StreamAnalytics": {
+      "properties.desired": {
+        "ASAJobInfo": "$ASA_JOB_INFO",
+        "ASAJobResourceId": "$ASA_JOB_RESOURCE_ID"
       }
     }
   }
